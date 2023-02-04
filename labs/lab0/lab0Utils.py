@@ -12,7 +12,9 @@ def linear_solver(A, b):
         x: 0xn numpy array
     """
     # Insert student code here
-    return b
+    x = np.linalg.inv(A) @ b
+
+    return x
 
 
 def angle_solver(v1, v2):
@@ -26,7 +28,8 @@ def angle_solver(v1, v2):
         theta = scalar >= 0 = angle in radians
     """
     # Insert student code here
-    return 0
+    theta  = np.arccos((v1 @ v2)/(np.linalg.norm(v1)*np.linalg.norm(v2)))
+    return theta
 
 
 def linear_euler_integration(A, x0, dt, nSteps):
@@ -43,7 +46,11 @@ def linear_euler_integration(A, x0, dt, nSteps):
         x: state after nSteps time steps (np array)
     """
     # Insert student code here
-    return x0
+    x = x0
+    for i in range(nSteps):
+        x = x + (A @ x0)*dt
+
+    return x
 
 
 if __name__ == '__main__':
