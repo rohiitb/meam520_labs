@@ -1,8 +1,13 @@
 import numpy as np
+<<<<<<< HEAD
 from numpy import cos,sin
 from math import pi
 
 
+=======
+from math import pi
+
+>>>>>>> c6e6f6694c1f8d9e4303209810796f1892356d2e
 class FK():
 
     def __init__(self):
@@ -11,6 +16,7 @@ class FK():
         # useful in computing the forward kinematics. The data you will need
         # is provided in the lab handout
 
+<<<<<<< HEAD
         self.dh_parameters = np.array([[0.     , 0.   , 0.    ],
                                        [0.     , -pi/2, 0.333 ],
                                        [0.     ,  pi/2, 0.    ],
@@ -43,6 +49,9 @@ class FK():
                         [0.           ,  0.                         ,  0.                         , 1.             ]])
 
         return A_i
+=======
+        pass
+>>>>>>> c6e6f6694c1f8d9e4303209810796f1892356d2e
 
     def forward(self, q):
         """
@@ -61,6 +70,7 @@ class FK():
         # Your Lab 1 code starts here
 
         jointPositions = np.zeros((8,3))
+<<<<<<< HEAD
         q = np.hstack((np.zeros(1), q)).reshape(-1)
 
         T0e = np.identity(4)
@@ -71,11 +81,19 @@ class FK():
             jointPositions[i] = (T0e @ self.offsets[i])[:3].reshape(-1)
 
         T0e = T0e @ self.dh_transformation(-pi/4, 0, 0, 0)
+=======
+        T0e = np.identity(4)
+
+>>>>>>> c6e6f6694c1f8d9e4303209810796f1892356d2e
         # Your code ends here
 
         return jointPositions, T0e
 
     # feel free to define additional helper methods to modularize your solution for lab 1
+<<<<<<< HEAD
+=======
+
+>>>>>>> c6e6f6694c1f8d9e4303209810796f1892356d2e
     
     # This code is for Lab 2, you can ignore it ofr Lab 1
     def get_axis_of_rotation(self, q):
@@ -110,14 +128,21 @@ if __name__ == "__main__":
     fk = FK()
 
     # matches figure in the handout
+<<<<<<< HEAD
     # q = np.array([0,0,0,-pi/2,0,pi/2,pi/4])
     q = np.array([0,0,0,0,0,0,0])
 
+=======
+    q = np.array([0,0,0,-pi/2,0,pi/2,pi/4])
+>>>>>>> c6e6f6694c1f8d9e4303209810796f1892356d2e
 
     joint_positions, T0e = fk.forward(q)
     
     print("Joint Positions:\n",joint_positions)
     print("End Effector Pose:\n",T0e)
+<<<<<<< HEAD
 
 
 
+=======
+>>>>>>> c6e6f6694c1f8d9e4303209810796f1892356d2e

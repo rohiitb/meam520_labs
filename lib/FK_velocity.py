@@ -1,7 +1,10 @@
 import numpy as np 
 from lib.calcJacobian import calcJacobian
+<<<<<<< HEAD
 # from calcJacobian import calcJacobian
 
+=======
+>>>>>>> c6e6f6694c1f8d9e4303209810796f1892356d2e
 
 def FK_velocity(q_in, dq):
     """
@@ -14,6 +17,7 @@ def FK_velocity(q_in, dq):
     ## STUDENT CODE GOES HERE
 
     velocity = np.zeros((6, 1))
+<<<<<<< HEAD
     J = calcJacobian(q_in)
 
     velocity = J @ dq
@@ -26,3 +30,8 @@ if __name__ == '__main__':
     dq = np.array([0.1,0,0.1,0,0.1,0,0])
     vel = FK_velocity(q, dq)
     print(vel)
+=======
+
+
+    return velocity
+>>>>>>> c6e6f6694c1f8d9e4303209810796f1892356d2e
