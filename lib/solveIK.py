@@ -6,6 +6,11 @@ from lib.calcJacobian import calcJacobian
 from lib.calculateFK import FK
 from lib.IK_velocity import IK_velocity
 
+# from calcJacobian import calcJacobian
+# from calculateFK import FK
+# from IK_velocity import IK_velocity
+
+
 class IK:
 
     # JOINT LIMITS
@@ -69,8 +74,24 @@ class IK:
 
         ## STUDENT CODE STARTS HERE
 
-        displacement = np.zeros(3)
-        axis = np.zeros(3)
+        # displacement = np.zeros(3)
+        # axis = np.zeros(3)
+
+        displacement = target[:3,-1] - current[:3,-1]
+        
+        R_c_w = current[:3,:3]
+        R_t_w = target[:3,:3]
+        R_w_t = R_t_w.T
+        R_c_t = R_w_t @ R_c_w
+
+        S = 0.5 * (R_c_t - R_c_t.T)
+
+        a = np.array([-S[2,1], -S[0,-1], -S[1,0]])
+
+        axis = R_t_w @ a
+        # print("Here displacement : ", displacement)
+        # print("Here axis : ", axis)
+        # raise
 
         ## END STUDENT CODE
 
@@ -96,14 +117,21 @@ class IK:
         distance - the distance in meters between the origins of G & H
         angle - the angle in radians between the orientations of G & H
 
-
         """
 
         ## STUDENT CODE STARTS HERE
 
-        distance = 0
-        angle = 0
+        # distance = 0
+        # angle = 0
 
+        disp, axis = IK.displacement_and_axis(G, H)
+        distance = np.linalg.norm(disp)
+        angle = np.arcsin(np.clip(np.linalg.norm(axis), -1, 1))
+
+        # print("Here distance : ", distance)
+        # print("Here angle : ", angle)
+        # raise
+        
         ## END STUDENT CODE
 
         return distance, angle
@@ -127,8 +155,27 @@ class IK:
 
         ## STUDENT CODE STARTS HERE
 
-        success = False
+        
+        check_1 = True
+        check_2 = True
+        check_3 = True
 
+        if ((q < IK.lower).any() or (q > IK.upper).any()):
+            print("[IK Solver failed] Joint Limit tolerance exceeded")
+            check_1 = False
+        
+        _, R = IK.fk.forward(q)
+        distance, angle = IK.distance_and_angle(target, R)
+
+        if distance > self.linear_tol:
+            print("[IK Solver failed] Linear tolerance exceeded")
+            check_2 = False
+
+        if angle > self.angular_tol:
+            print("[IK Solver failed] Angular tolerance exceeded")
+            check_3 = False
+        
+        success = check_1 and check_2 and check_3
         ## END STUDENT CODE
 
         return success
@@ -155,7 +202,9 @@ class IK:
 
         ## STUDENT CODE STARTS HERE
 
-        dq = np.zeros(7)
+        _, current = IK.fk.forward(q) 
+        disp, axis = IK.displacement_and_axis(target, current)
+        dq = IK_velocity(q, disp, axis)
 
         ## END STUDENT CODE
 
@@ -225,14 +274,21 @@ class IK:
             dq_center = self.joint_centering_task(q)
 
             ## STUDENT CODE STARTS HERE
+            J = calcJacobian(q)
+            nullspace = null_space(J).ravel()
 
+            dq_centre_proj = nullspace * (dq_center @ nullspace) / (nullspace @ nullspace)
             # Task Prioritization
-            dq = np.zeros(7) # TODO: implement me!
+            # dq = np.zeros(7) # TODO: implement me!
+
+            dq = dq_ik + dq_centre_proj
+            
 
             # Termination Conditions
-            if True: # TODO: check termination conditions
-                break # exit the while loop if conditions are met!
 
+            if len(rollout) == self.max_steps or np.linalg.norm(dq) < self.min_step_size: # TODO: check termination conditions
+                break # exit the while loop if conditions are met!
+            
             ## END STUDENT CODE
 
             q = q + dq
@@ -251,15 +307,40 @@ if __name__ == "__main__":
     ik = IK()
 
     # matches figure in the handout
-    seed = np.array([0,0,0,-pi/2,0,pi/2,pi/4])
+    # seed = np.array([0,0,0,-pi/2,0,pi/2,pi/4])
+    # seed = np.array([-0.01779206+pi/9, -0.76012354+pi/6,  0.01978261, -2.34205014+pi/8, 0.02984053, 1.54119353+pi/11, 0.75344866])
+    seed = np.array([0.30514158, -1.20959833, -2.10273557, -1.52647057, 0.45937979, 1.61914452, 1.87945006])
 
-    target = np.array([
-        [0,-1,0,0.3],
-        [-1,0,0,0],
-        [0,0,-1,.5],
-        [0,0,0, 1],
-    ])
+    # target = np.array([
+    #     [0,-1,0,0.3],
+    #     [-1,0,0,0],
+    #     [0,0,-1,.5],
+    #     [0,0,0, 1],
+    # ])
 
+    # target = np.eye(4)
+    # target[:3,:3] = np.array([[1,0,0],
+    #                           [0,-1,0],
+    #                           [0,0,-1]])
+    # # target[:3,-1] = np.array([0.531, -0.2, 0.225+0.01+0.05+0.05+0.05])
+    # target[:3,-1] = np.array([0.531, -0.2, 0.225+0.01+0.05])
+
+    target = np.array([[0,0,-1,0.15],
+                    [0,-1,0,0.675],
+                    [-1,0,0,.226],
+                    [0,0,0,1]])
+    # target = np.array([[0,0,-1,-0.08],
+    #                    [0,1,0,-0.72],
+    #                    [-1,0,0,.235],
+    #                    [0,0,0,1]])
+
+    # target = np.array([[0,0,-1,0],
+    #                    [0,1,0,0.685],
+    #                    [1,0,0,.229],
+    #                    [0,0,0,1]])
+
+
+    print("target : ", target)
     q, success, rollout = ik.inverse(target, seed)
 
     for i, q in enumerate(rollout):

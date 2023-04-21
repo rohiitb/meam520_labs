@@ -2,10 +2,18 @@ import numpy as np
 from math import pi, acos
 from scipy.linalg import null_space
 from copy import deepcopy
-from lib.calcJacobian import calcJacobian
-from lib.calculateFK import FK
-from lib.detectCollision import detectCollision
-from lib.loadmap import loadmap
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+
+# from lib.calcJacobian import calcJacobian
+# from lib.calculateFK import FK
+# from lib.detectCollision import detectCollision
+# from lib.loadmap import loadmap
+
+from calcJacobian import calcJacobian
+from calculateFK import FK
+from detectCollision import detectCollision
+from loadmap import loadmap
 
 
 class PotentialFieldPlanner:
@@ -17,7 +25,7 @@ class PotentialFieldPlanner:
     center = lower + (upper - lower) / 2 # compute middle of range of motion of each joint
     fk = FK()
 
-    def __init__(self, tol=1e-4, max_steps=500, min_step_size=1e-5):
+    def __init__(self, tol=1e-4, max_steps=20000, min_step_size=1e-6):
         """
         Constructs a potential field planner with solver parameters.
 
@@ -57,10 +65,20 @@ class PotentialFieldPlanner:
         att_f - 3x1 numpy array representing the force vector that pulls the joint 
         from the current position to the target position 
         """
-
         ## STUDENT CODE STARTS HERE
-
         att_f = np.zeros((3, 1)) 
+
+        current = current.reshape(-1,1)
+        target = target.reshape(-1,1)
+
+        diff = current - target
+
+        att_force_constant = 1
+
+        if np.linalg.norm(diff) != 0:
+            att_f = (-att_force_constant)*diff/(np.linalg.norm(diff))
+        else:
+            att_f = np.zeros((3, 1)) 
 
         ## END STUDENT CODE
 
@@ -85,9 +103,18 @@ class PotentialFieldPlanner:
         """
 
         ## STUDENT CODE STARTS HERE
-
         rep_f = np.zeros((3, 1)) 
 
+        force_constant = 1.5 #1
+        p0 = 0.2 #0.12
+
+        dist, unitvec = PotentialFieldPlanner.dist_point2box(current, obstacle)
+        
+
+        if dist[0] <= p0 and dist[0]>0:
+            rep_f = force_constant*((1/dist) - (1/p0))*((1/dist)**2)*unitvec
+
+        rep_f = rep_f.reshape(3,1)
         ## END STUDENT CODE
 
         return rep_f
@@ -121,7 +148,7 @@ class PotentialFieldPlanner:
         boxMin = np.array([box[0], box[1], box[2]])
         boxMax = np.array([box[3], box[4], box[5]])
         boxCenter = boxMin*0.5 + boxMax*0.5
-        p = np.array(p)
+        p = np.array(p).T
 
         # Get distance info from point to box boundary
         dx = np.amax(np.vstack([boxMin[0] - p[:, 0], p[:, 0] - boxMax[0], np.zeros(p[:, 0].shape)]).T, 1)
@@ -133,10 +160,10 @@ class PotentialFieldPlanner:
         dist = np.linalg.norm(distances, axis=1)
 
         # Figure out the signs
-        signs = np.sign(boxCenter-p)
+        signs = np.sign(boxCenter.T-p)
 
         # Calculate unit vector and replace with
-        unit = distances / dist[:, np.newaxis] * signs
+        unit = distances / dist * signs
         unit[np.isnan(unit)] = 0
         unit[np.isinf(unit)] = 0
         return dist, unit
@@ -162,7 +189,15 @@ class PotentialFieldPlanner:
 
         ## STUDENT CODE STARTS HERE
 
-        joint_forces = np.zeros((3, 7)) 
+        joint_forces = np.zeros((3, 7))
+        target = np.reshape(target[0:3, :], (3, 7))
+        current = np.reshape(current[0:3, :], (3, 7))
+        for i in range(7):
+            tar = target[:, i].reshape(3,1)
+            cur = current[:, i].reshape(3,1)
+            att = PotentialFieldPlanner.attractive_force(tar, cur).reshape(-1)
+            rep = PotentialFieldPlanner.repulsive_force(obstacle, cur).reshape(-1)
+            joint_forces[:, i] = att + rep
 
         ## END STUDENT CODE
 
@@ -187,6 +222,14 @@ class PotentialFieldPlanner:
 
         joint_torques = np.zeros((1, 7)) 
 
+        Jacobian = calcJacobian(q)  # Shape 6 x 7
+        J_vel = Jacobian[:3]        # Shape 3 x 7
+
+        # joint_torques = np.array([J_vel[:,i].T@joint_forces[:,i] for i in range(7)]).reshape(1,-1)
+
+        tau_q = J_vel.T @ joint_forces
+
+        joint_torques = np.vstack([np.sum(tau_q[:, 0]), np.sum(tau_q[:, 1]), np.sum(tau_q[:, 2]), np.sum(tau_q[:, 3]), np.sum(tau_q[:,4]), np.sum(tau_q[:, 5]), np.sum(tau_q[:, 6])])
         ## END STUDENT CODE
 
         return joint_torques
@@ -211,11 +254,11 @@ class PotentialFieldPlanner:
 
         ## STUDENT CODE STARTS HERE
 
-        distance = 0
+        distance = target - current
 
         ## END STUDENT CODE
 
-        return distance
+        return np.linalg.norm(distance)
     
     @staticmethod
     def compute_gradient(q, target, map_struct):
@@ -236,10 +279,24 @@ class PotentialFieldPlanner:
         ## STUDENT CODE STARTS HERE
 
         dq = np.zeros((1, 7))
+        fk = FK()
+        obstacles = map_struct[0]
+        
+        current_joint_P, _ = fk.forward(q)
 
+        target_joint_P, _ = fk.forward(target)
+
+        if(len(obstacles) == 0):
+            force = PotentialFieldPlanner.compute_forces(target_joint_P[1:,:].T, [0,0,0,0,0,0], current_joint_P[1:,:].T)
+            tau_q = PotentialFieldPlanner.compute_torques(force, q)
+            dq = tau_q/(np.linalg.norm(tau_q))
+
+        for i in range(len(obstacles)):
+            force = PotentialFieldPlanner.compute_forces(target_joint_P[1:,:].T, obstacles[i], current_joint_P[1:,:].T)
+            tau_q= PotentialFieldPlanner.compute_torques(force, q)
+            dq = tau_q/(np.linalg.norm(tau_q))
         ## END STUDENT CODE
-
-        return dq
+        return dq.reshape(-1)
 
     ###############################
     ### Potential Feild Solver  ###
@@ -262,6 +319,13 @@ class PotentialFieldPlanner:
         """
 
         q_path = np.array([]).reshape(0,7)
+        q_current = start
+        steps = 0
+        step_size = 1e-4
+        q_path = np.vstack((q_path, start))
+        # error_list = []
+
+
 
         while True:
 
@@ -272,16 +336,17 @@ class PotentialFieldPlanner:
             
             # Compute gradient 
             # TODO: this is how to change your joint angles 
+            dq = PotentialFieldPlanner.compute_gradient(q_current, goal, map_struct)
 
             # Termination Conditions
-            if True: # TODO: check termination conditions
+            if PotentialFieldPlanner.q_distance(goal, q_current) < self.tol or steps > self.max_steps: 
                 break # exit the while loop if conditions are met!
 
-            # YOU NEED TO CHECK FOR COLLISIONS WITH OBSTACLES
-            # TODO: Figure out how to use the provided function 
+            q_current = q_path[-1] - step_size * dq
 
-            # YOU MAY NEED TO DEAL WITH LOCAL MINIMA HERE
-            # TODO: when detect a local minima, implement a random walk
+            q_path = np.vstack((q_path, q_current))
+
+            steps += 1
             
             ## END STUDENT CODE
 
@@ -298,16 +363,52 @@ if __name__ == "__main__":
     planner = PotentialFieldPlanner()
     
     # inputs 
-    map_struct = loadmap("../maps/map1.txt")
+    
+    map_struct = loadmap("../maps/map4.txt")
+ 
+    # map_struct = loadmap("../maps/map1.txt")
     start = np.array([0,-1,0,-2,0,1.57,0])
     goal =  np.array([-1.2, 1.57 , 1.57, -2.07, -1.57, 1.57, 0.7])
     
     # potential field planning
     q_path = planner.plan(deepcopy(map_struct), deepcopy(start), deepcopy(goal))
+    print(q_path)
+
+    empty_fk = np.zeros((q_path.shape[0]+1, 3))
+    fk = FK()
+    for i in range(q_path.shape[0]):
+        q_here  = q_path[i]
+        empty_fk[i] = fk.forward(q_here)[1][:3,-1]
     
+    print("End effector position : ", empty_fk)
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+
+    # plot the data
+    ax.scatter(empty_fk[:,0], empty_fk[:,1], empty_fk[:,2])
+
+    # set axis labels
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+
+    # show the plot
+    plt.show()
+
+    error_list = []
+    
+
     # show results
     for i in range(q_path.shape[0]):
         error = PotentialFieldPlanner.q_distance(q_path[i, :], goal)
+        error_list.append(error)
         print('iteration:',i,' q =', q_path[i, :], ' error={error}'.format(error=error))
+
+    plt.plot(error_list)
+    plt.title("Error vs no of iterations for Potential fields")
+    plt.xlabel("Iterations")
+    plt.ylabel("Error")
+    plt.show()
 
     print("q path: ", q_path)

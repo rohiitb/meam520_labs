@@ -1,5 +1,4 @@
 import numpy as np
-<<<<<<< HEAD
 from numpy import cos,sin
 from math import pi
 
@@ -77,9 +76,6 @@ class FK():
         # Your code ends here
 
         return jointPositions, T0e
-=======
-from lib.calculateFK import FK
->>>>>>> c6e6f6694c1f8d9e4303209810796f1892356d2e
 
 def calcJacobian(q_in):
     """
@@ -93,7 +89,6 @@ def calcJacobian(q_in):
     J = np.zeros((6, 7))
 
     ## STUDENT CODE GOES HERE
-<<<<<<< HEAD
     fk = FK()
     joint_positions, T0e = fk.forward(q_in)
 
@@ -111,17 +106,11 @@ def calcJacobian(q_in):
         T0e_here = T0e_here @ fk.dh_transformation(q[i], fk.dh_parameters[i,0], fk.dh_parameters[i,1], fk.dh_parameters[i,2])
         J[:3,i-1] = np.cross(z, o_i[i-1])
         J[3:,i-1] = z
-=======
->>>>>>> c6e6f6694c1f8d9e4303209810796f1892356d2e
 
     return J
 
 if __name__ == '__main__':
-<<<<<<< HEAD
     # q= np.array([0, 0, 0, -np.pi/2, 0, np.pi/2, np.pi/4])
     q= np.array([0, 0, 0, 0, 0, 0, 0])
 
-=======
-    q= np.array([0, 0, 0, -np.pi/2, 0, np.pi/2, np.pi/4])
->>>>>>> c6e6f6694c1f8d9e4303209810796f1892356d2e
     print(np.round(calcJacobian(q),3))
